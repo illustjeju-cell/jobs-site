@@ -1,0 +1,19 @@
+name: 시험 수집(배포 없음)
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: 수집
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          WORK24_AUTH_KEY: ${{ secrets.WORK24_AUTH_KEY }}
+        run: python scripts/collect.py
+      - name: 빌드
+        run: python scripts/build.py
+      - uses: actions/upload-artifact@v4
+        with: { name: jobs-data, path: "data/" }
