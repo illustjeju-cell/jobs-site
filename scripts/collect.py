@@ -3,7 +3,7 @@
 2) 나라일터: https://apis.data.go.kr/1760000/PblJobService/getList (DATA_GO_KR_KEY, XML)      data.go.kr/data/15156780
 3) 고용24 공채속보: https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L21.do (WORK24_AUTH_KEY, XML)
 소스별 실패는 건너뛰고 로그에 원인만 남김."""
-import json, os, re, sys, time, socket, urllib.parse, urllib.request, xml.etree.ElementTree as ET
+import json, os, re, sys, time, datetime, collections, socket, urllib.parse, urllib.request, xml.etree.ElementTree as ET
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "jobs.json")
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 K, WK = os.environ.get("DATA_GO_KR_KEY", "").strip(), os.environ.get("WORK24_AUTH_KEY", "").strip()
@@ -40,32 +40,45 @@ def alio():
         if len(rows) < 500: break
     return out
 
+NARA = "https://apis.data.go.kr/1760000/PblJobService/getList"
+def nara_page(page, extra=None):
+    p = {"serviceKey": K, "numOfRows": 100, "pageNo": page, **(extra or {})}
+    last = None
+    for t in (90, 120, 150):
+        try:
+            root = ET.fromstring(get(NARA + "?" + qs(p), t))
+            err = root.findtext(".//errMsg") or root.findtext(".//returnAuthMsg")
+            if err: raise RuntimeError(red(err))
+            return int(root.findtext(".//totalCount") or 0), [{c.tag: (c.text or "") for c in it} for it in root.findall(".//item")]
+        except Exception as e:
+            last = e; print(f"[나라일터] page {page} 재시도({t}s):", red(e)); time.sleep(5)
+    raise RuntimeError(red(last))
 def nara():
+    """정렬·기간 파라미터 없음(명세상 title 검색만) → totalCount로 마지막 페이지부터 역순 수집, 45일보다 오래된 등록일이 나오면 중단"""
+    total, first = nara_page(1)
+    print("[나라일터] total", total, "필드", list(first[0].keys()) if first else [])
+    last = (total + 99) // 100
+    cutoff = (datetime.date.today() - datetime.timedelta(days=45)).strftime("%Y%m%d")
+    rows, page, fails = [], last, 0
+    while page >= 1 and page > last - 40:
+        try: _, r = nara_page(page)
+        except Exception: fails += 1; page -= 1; continue
+        rows += r
+        regs = [re.sub(r"\D", "", x.get("regdate", ""))[:8] for x in r if x.get("regdate")]
+        if regs and max(regs) < cutoff: break
+        page -= 1; time.sleep(0.5)
+    print(f"[나라일터] 역순 {last}→{page} 페이지, 실패 {fails}")
+    for k in ("areacode", "type01", "type02"):
+        print(f"[나라일터] {k} 분포", collections.Counter(x.get(k) for x in rows).most_common(25))
     out, seen = [], set()
-    for kw in ["", "공무직", "채용", "모집", "직원", "경력경쟁", "선발", "2026"]:
-        p = {"serviceKey": K, "numOfRows": 100, "pageNo": 1}
-        if kw: p["title"] = kw
-        try: root = ET.fromstring(get("https://apis.data.go.kr/1760000/PblJobService/getList?" + qs(p), 58))
-        except Exception as e: print(f"[나라일터] '{kw}' 실패:", red(e)); continue
-        err = root.findtext(".//errMsg") or root.findtext(".//returnAuthMsg")
-        if err: print(f"[나라일터] '{kw}' 오류:", red(err)); continue
-        total = int(root.findtext(".//totalCount") or 0)
-        rows = [{c.tag: (c.text or "") for c in it} for it in root.findall(".//item")]
-        if not kw: print("[나라일터] total", total, "필드", list(rows[0].keys()) if rows else [])
-        last = (total + 99) // 100
-        if last > 1:   # 오래된 순 → 마지막 페이지가 최신
-            try:
-                p["pageNo"] = last; root = ET.fromstring(get("https://apis.data.go.kr/1760000/PblJobService/getList?" + qs(p), 58))
-                rows += [{c.tag: (c.text or "") for c in it} for it in root.findall(".//item")]
-            except Exception as e: print(f"[나라일터] '{kw}' 최신페이지 실패:", red(e))
-        for g in rows:
-            i = g.get("idx")
-            if not i or i in seen: continue
-            seen.add(i)
-            out.append({"id": f"G{i}", "src": "나라일터", "org": g.get("insttname"), "title": g.get("title"), "type": g.get("emplymStleNm", ""), "region": g.get("workRgnNm", ""),
-                "career": "", "count": "", "start": re.sub(r"\D", "", g.get("regdate", ""))[:8], "end": re.sub(r"\D", "", g.get("enddate", ""))[:8],
-                "url": f"https://www.gojobs.go.kr/apmView.do?empmnsn={i}", "edu": "", "field": "", "salary": "", "detail": {}})
-        time.sleep(0.5)
+    for g in rows:
+        i = g.get("idx")
+        if not i or i in seen: continue
+        seen.add(i)
+        out.append({"id": f"G{i}", "src": "나라일터", "org": g.get("insttname"), "title": g.get("title"), "type": g.get("type02", ""), "region": "",
+            "areacode": g.get("areacode", ""), "type01": g.get("type01", ""), "type02": g.get("type02", ""),
+            "career": "", "count": "", "start": re.sub(r"\D", "", g.get("regdate", ""))[:8], "end": re.sub(r"\D", "", g.get("enddate", ""))[:8],
+            "url": f"https://www.gojobs.go.kr/apmView.do?empmnsn={i}", "edu": "", "field": "", "salary": "", "detail": {}})
     return out
 
 def work24():
@@ -93,6 +106,6 @@ def main():
         except Exception as e: stats[name] = f"실패 {type(e).__name__}: {red(e)}"; print(f"== {name}: 실패", red(e))
     json.dump(stats, open(os.path.join(os.path.dirname(OUT), "stats.json"), "w", encoding="utf-8"), ensure_ascii=False)
     if not items: print("수집 0건: 기존 데이터 유지"); return 0
-    json.dump({"sample": False, "generated_at": time.strftime("%Y-%m-%d %H:%M"), "sources": ok, "data": items}, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
+    json.dump({"sample": False, "generated_at": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M") + " (KST)", "sources": ok, "data": items}, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
     print("saved", len(items)); return 0
 if __name__ == "__main__": sys.exit(main())

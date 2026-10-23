@@ -1,5 +1,7 @@
 """data/jobs.json -> dist/ (index.html, data.json, j/<id>.html, sitemap.xml, robots.txt, ads.txt)"""
-import json, os, re, html, shutil, datetime
+import json, os, re, html, shutil, datetime, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from regions import region_of
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 SITE = os.environ.get("SITE_URL", "https://example.com").rstrip("/")
 ADS = os.environ.get("ADSENSE_CLIENT", "")
@@ -48,12 +50,20 @@ def rich(s):
             out += ["</ul>"] * lvl; lvl = 0; out.append(f"<p>{e(L)}</p>")
     out += ["</ul>"] * lvl
     return "".join(out)
+def job_regions(r):
+    if r.get("region"): return regions(r["region"])
+    a = regions(AREA.get(str(r.get("areacode", "")).strip(), ""))
+    if a != ["전국"]: return a
+    g = region_of(r.get("org") or "")
+    if g != "전국": return ["전남", "광주"] if g == "전남·광주" else [g]
+    return regions(r.get("org", "") + " " + r.get("title", ""))
+AREA = json.load(open(f"{ROOT}/data/nara_area.json", encoding="utf-8")) if os.path.exists(f"{ROOT}/data/nara_area.json") else {}
 items = []
 for r in D["data"]:
     end = ymd(r.get("end"))
     if end and end < TODAY: continue
     dd = (end - TODAY).days if end else None
-    items.append({**r, "id": re.sub(r"[^A-Za-z0-9_-]", "", str(r["id"])), "regions": regions(r.get("region") or (r.get("org","") + " " + r.get("title",""))), "emp": emp((r.get("type") or "") + " " + (r.get("title") or "")), "eduL": edu(r.get("edu")),
+    items.append({**r, "id": re.sub(r"[^A-Za-z0-9_-]", "", str(r["id"])), "regions": job_regions(r), "emp": emp((r.get("type") or "") + " " + (r.get("title") or "")), "eduL": edu(r.get("edu")),
         "car": car(r.get("career")), "fields": ([x.strip() for x in re.split(r"[,|]", r.get("field") or "") if x.strip()] or ([r["orgType"]] if r.get("orgType") else ["공무직·공공" if r.get("src")=="나라일터" else "기타"]))[:3], "dd": dd, "endS": end.isoformat() if end else "채용 시 마감"})
 items.sort(key=lambda x: (x["dd"] is None, x["dd"] if x["dd"] is not None else 0))
 ADHEAD = f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS}" crossorigin="anonymous"></script>' if ADS else ""
