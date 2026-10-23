@@ -52,12 +52,13 @@ def rich(s):
     return "".join(out)
 def job_regions(r):
     if r.get("region"): return regions(r["region"])
-    a = regions(AREA.get(str(r.get("areacode", "")).strip(), ""))
-    if a != ["전국"]: return a
+    ac = str(r.get("areacode", "")).strip()
+    if ac[:2] in SIDO_CODE: return SIDO_CODE[ac[:2]]
     g = region_of(r.get("org") or "")
     if g != "전국": return ["전남", "광주"] if g == "전남·광주" else [g]
     return regions(r.get("org", "") + " " + r.get("title", ""))
-AREA = json.load(open(f"{ROOT}/data/nara_area.json", encoding="utf-8")) if os.path.exists(f"{ROOT}/data/nara_area.json") else {}
+# 행정구역 시도코드(앞 2자리). 12는 전남광주통합특별시로 추정
+SIDO_CODE = {"11":["서울"],"26":["부산"],"27":["대구"],"28":["인천"],"29":["광주"],"30":["대전"],"31":["울산"],"36":["세종"],"41":["경기"],"42":["강원"],"51":["강원"],"43":["충북"],"44":["충남"],"45":["전북"],"52":["전북"],"46":["전남"],"12":["전남","광주"],"47":["경북"],"48":["경남"],"50":["제주"]}
 items = []
 for r in D["data"]:
     end = ymd(r.get("end"))
