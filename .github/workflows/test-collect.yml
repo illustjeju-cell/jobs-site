@@ -12,7 +12,8 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           WORK24_AUTH_KEY: ${{ secrets.WORK24_AUTH_KEY }}
-        run: python scripts/collect.py
+        run: python -u scripts/collect.py
+        timeout-minutes: 25
       - name: 빌드
         run: python scripts/build.py
       - uses: actions/upload-artifact@v4

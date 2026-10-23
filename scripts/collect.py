@@ -41,10 +41,10 @@ def alio():
     return out
 
 NARA = "https://apis.data.go.kr/1760000/PblJobService/getList"
-def nara_page(page, extra=None):
+def nara_page(page, extra=None, tries=(60, 90)):
     p = {"serviceKey": K, "numOfRows": 100, "pageNo": page, **(extra or {})}
     last = None
-    for t in (90, 120, 150):
+    for t in tries:
         try:
             root = ET.fromstring(get(NARA + "?" + qs(p), t))
             err = root.findtext(".//errMsg") or root.findtext(".//returnAuthMsg")
@@ -53,23 +53,28 @@ def nara_page(page, extra=None):
         except Exception as e:
             last = e; print(f"[나라일터] page {page} 재시도({t}s):", red(e)); time.sleep(5)
     raise RuntimeError(red(last))
+NARA_KW = ["2026", "공무직", "직원", "모집", "재공고", "경력경쟁", "연구원", "신규", "정규직", "청원경찰", "선발", "실무", "운영", "공무원", "채용", "기간제"]
 def nara():
-    """정렬·기간 파라미터 없음(명세상 title 검색만) → totalCount로 마지막 페이지부터 역순 수집, 45일보다 오래된 등록일이 나오면 중단"""
-    total, first = nara_page(1)
-    print("[나라일터] total", total, "필드", list(first[0].keys()) if first else [])
-    last = (total + 99) // 100
-    cutoff = (datetime.date.today() - datetime.timedelta(days=45)).strftime("%Y%m%d")
-    rows, page, fails = [], last, 0
-    while page >= 1 and page > last - 40:
-        try: _, r = nara_page(page)
-        except Exception: fails += 1; page -= 1; continue
-        rows += r
-        regs = [re.sub(r"\D", "", x.get("regdate", ""))[:8] for x in r if x.get("regdate")]
-        if regs and max(regs) < cutoff: break
-        page -= 1; time.sleep(0.5)
-    print(f"[나라일터] 역순 {last}→{page} 페이지, 실패 {fails}")
+    """명세상 정렬·기간 파라미터 없음, 오래된 순 응답. 전체 마지막 페이지는 서버 시간초과 →
+    제목 검색어별 totalCount로 마지막 페이지부터 역순 수집(45일 이전 등록이면 중단), 재시도·긴 타임아웃, 전체 12분 제한"""
+    t0, cutoff = time.time(), (datetime.date.today() - datetime.timedelta(days=45)).strftime("%Y%m%d")
+    rows, stat = [], {}
+    for kw in NARA_KW:
+        if time.time() - t0 > 720: print("[나라일터] 시간 제한 도달"); break
+        try: total, _ = nara_page(1, {"title": kw}, tries=(60,))
+        except Exception as e: stat[kw] = "실패"; continue
+        last, got = (total + 99) // 100, 0
+        for page in range(last, max(0, last - 4), -1):
+            try: _, r = nara_page(page, {"title": kw})
+            except Exception: break
+            rows += r; got += len(r)
+            regs = [re.sub(r"\D", "", x.get("regdate", ""))[:8] for x in r if x.get("regdate")]
+            if regs and min(regs) < cutoff: break
+        stat[kw] = f"{total}중 {got}"
+    print("[나라일터] 검색어별", stat)
+    if not rows: raise RuntimeError("0건")
     for k in ("areacode", "type01", "type02"):
-        print(f"[나라일터] {k} 분포", collections.Counter(x.get(k) for x in rows).most_common(25))
+        print(f"[나라일터] {k} 분포", collections.Counter(x.get(k) for x in rows).most_common(30))
     out, seen = [], set()
     for g in rows:
         i = g.get("idx")
