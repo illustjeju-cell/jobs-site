@@ -10,10 +10,11 @@ SIDO = ["서울","부산","대구","인천","광주","대전","울산","세종",
 def regions(s):
     s = (s or "").replace("전남광주", "전남,광주").replace("충청북도","충북").replace("충청남도","충남").replace("경상북도","경북").replace("경상남도","경남").replace("전라북도","전북").replace("전라남도","전남")
     r = [x for x in SIDO if x in s]
-    return r or (["전국"] if "전국" in s or not s else ["기타"])
+    return r or ["전국"]
 def emp(t):
     t = t or ""
     if "인턴" in t: return "인턴"
+    if "공무직" in t: return "무기계약직"
     if "정규" in t: return "정규직"
     if "무기" in t: return "무기계약직"
     if "비정규" in t or "기간제" in t or "계약" in t: return "계약직"
@@ -52,8 +53,8 @@ for r in D["data"]:
     end = ymd(r.get("end"))
     if end and end < TODAY: continue
     dd = (end - TODAY).days if end else None
-    items.append({**r, "id": re.sub(r"[^A-Za-z0-9_-]", "", str(r["id"])), "regions": regions(r.get("region")), "emp": emp(r.get("type")), "eduL": edu(r.get("edu")),
-        "car": car(r.get("career")), "fields": [x.strip() for x in re.split(r"[,|]", r.get("field") or "") if x.strip()][:3], "dd": dd, "endS": end.isoformat() if end else "채용 시 마감"})
+    items.append({**r, "id": re.sub(r"[^A-Za-z0-9_-]", "", str(r["id"])), "regions": regions(r.get("region") or (r.get("org","") + " " + r.get("title",""))), "emp": emp((r.get("type") or "") + " " + (r.get("title") or "")), "eduL": edu(r.get("edu")),
+        "car": car(r.get("career")), "fields": ([x.strip() for x in re.split(r"[,|]", r.get("field") or "") if x.strip()] or ([r["orgType"]] if r.get("orgType") else ["공무직·공공" if r.get("src")=="나라일터" else "기타"]))[:3], "dd": dd, "endS": end.isoformat() if end else "채용 시 마감"})
 items.sort(key=lambda x: (x["dd"] is None, x["dd"] if x["dd"] is not None else 0))
 ADHEAD = f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS}" crossorigin="anonymous"></script>' if ADS else ""
 def ad(slot): return f'<div class="ad">광고 자리 (애드센스 {slot})</div>'
