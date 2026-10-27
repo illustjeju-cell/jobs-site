@@ -68,11 +68,11 @@ for r in D["data"]:
         "car": car(r.get("career")), "fields": ([x.strip() for x in re.split(r"[,|]", r.get("field") or "") if x.strip()] or ([r["orgType"]] if r.get("orgType") else ["공무직·공공" if r.get("src")=="나라일터" else "기타"]))[:3], "dd": dd, "endS": end.isoformat() if end else "채용 시 마감"})
 items.sort(key=lambda x: (x["dd"] is None, x["dd"] if x["dd"] is not None else 0))
 ADHEAD = f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS}" crossorigin="anonymous"></script>' if ADS else ""
-def ad(slot): return f'<div class="ad">광고 자리 (애드센스 {slot})</div>'
+def ad(slot): return ""
 SAMPLE = '<div class="sample">⚠ 예시 데이터입니다. 실제 채용공고가 아니며, API 연결 후 실제 공고로 바뀝니다.</div>' if D.get("sample") else ""
 CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
 CPA = [("NCS·필기 인강 할인", "CPA 자리: 공기업 NCS 강의"), ("이력서·자소서 첨삭", "CPA 자리: 이력서 서비스"), ("컴활·한국사 자격증 단기 합격", "CPA 자리: 자격증 강의"), ("공무원 시험 무료 체험강의", "CPA 자리: 공무원 인강")]
-def cpa(i): c = CPA[i % len(CPA)]; return f'<a class="cpa" href="#" rel="sponsored nofollow">{c[0]}<small>{c[1]}</small></a>'
+def cpa(i): return ""
 def dlab(x): return "상시" if x["dd"] is None else ("오늘 마감" if x["dd"] == 0 else f"D-{x['dd']}")
 def page(title, desc, body, canonical, extra=""):
     return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
