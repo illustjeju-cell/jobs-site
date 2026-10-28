@@ -1,6 +1,7 @@
 """채용공고 수집 → data/jobs.json  (키 값은 출력하지 않음)
 1) 알리오  : https://apis.data.go.kr/1051000/recruitment/list (DATA_GO_KR_KEY, JSON)          data.go.kr/data/15125273
 2) 나라일터: https://apis.data.go.kr/1760000/PblJobService/getList (DATA_GO_KR_KEY, XML)      data.go.kr/data/15156780
+   + 나라일터 웹사이트 목록(https://www.gojobs.go.kr/apmList.do) 최신순 병행 수집 (키 불요, requests 필요)
 3) 고용24 공채속보: https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L21.do (WORK24_AUTH_KEY, XML)
 소스별 실패는 건너뛰고 로그에 원인만 남김."""
 import json, os, re, sys, time, datetime, collections, socket, urllib.parse, urllib.request, xml.etree.ElementTree as ET
@@ -53,8 +54,66 @@ def nara_page(page, extra=None, tries=(60, 90)):
         except Exception as e:
             last = e; print(f"[나라일터] page {page} 재시도({t}s):", red(e)); time.sleep(5)
     raise RuntimeError(red(last))
-NARA_KW = ["2026", "공무직", "직원", "모집", "재공고", "경력경쟁", "연구원", "신규", "정규직", "청원경찰", "선발", "실무", "운영", "공무원", "채용", "기간제"]
+NARA_KW = ["2026", "공무직", "직원", "모집", "재공고", "경력경쟁", "연구원", "신규", "정규직", "청원경찰", "선발", "실무", "운영", "공무원", "채용", "기간제", "집배원", "간호", "행정직원", "무기계약", "박물관"]
+def nara_web():
+    """나라일터 웹사이트 목록(apmList)을 최신순으로 직접 수집. API 키워드 검색이 놓치는
+    최신 공고(우체국 공무직·병원·공관 등)를 보완한다. 게시 45일 이내, 최대 150페이지/9분."""
+    import requests
+    BASE = "https://www.gojobs.go.kr"
+    HDRW = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
+    ROW_RE = re.compile(r"fn_apmView\('(\d+)',\s*'(\d+)'\)\">(.*?)</a>\s*</td>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>\s*([\d-]+)", re.S)
+    DL_RE = re.compile(r"<td[^>]*>\s*([\d-]+)\s*</td>")
+    def clean(t): return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", t)).strip()
+    cutoff = (datetime.date.today() - datetime.timedelta(days=45)).strftime("%Y-%m-%d")
+    t0 = time.time()
+    s = requests.Session(); s.headers.update(HDRW)
+    body = s.get(BASE + "/apmList.do?menuNo=401", timeout=40).text
+    m = re.search(r'id="listForm"[^>]*action="([^"]+)"', body)
+    action = BASE + m.group(1) if m else BASE + "/apmList.do?menuNo=401"
+    seen, page = {}, 0
+    while page < 150 and time.time() - t0 < 540:
+        page += 1
+        if page > 1:
+            body = None
+            for a in range(3):
+                try:
+                    body = s.post(action, data={"pageIndex": str(page)}, timeout=40).text; break
+                except Exception:
+                    if a == 2: raise
+                    time.sleep(2)
+        rows = []
+        for mm in ROW_RE.finditer(body):
+            code, pid, title, org, posted = mm.groups()
+            tail = body[mm.end():mm.end() + 3000]
+            nxt = tail.find("fn_apmView")
+            if nxt > 0: tail = tail[:nxt]
+            dm = DL_RE.search(tail)
+            rows.append((pid, clean(org), clean(title), posted, dm.group(1) if dm else ""))
+        if not rows: break
+        for pid, org, title, posted, deadline in rows:
+            if pid in seen or posted < cutoff: continue
+            seen[pid] = {"id": f"G{pid}", "src": "나라일터", "org": org, "title": title, "type": "", "region": "",
+                "areacode": "", "type01": "", "type02": "", "career": "", "count": "",
+                "start": re.sub(r"\D", "", posted)[:8], "end": re.sub(r"\D", "", deadline)[:8],
+                "url": f"https://www.gojobs.go.kr/apmView.do?empmnsn={pid}", "edu": "", "field": "", "salary": "", "detail": {}}
+        if all(r[3] < cutoff for r in rows): break
+    print(f"[나라일터] 웹 목록 {len(seen)}건 (pages={page}, {time.time()-t0:.0f}s)")
+    return list(seen.values())
 def nara():
+    """웹 목록(최신) + API 키워드 검색(45일 꼬리)을 합집합으로 수집. 합격자 발표 등
+    지원 대상이 아닌 게시물은 제외한다."""
+    merged = {}
+    try:
+        for it in nara_web(): merged[it["id"]] = it
+    except Exception as e: print("[나라일터] 웹 수집 실패:", red(e))
+    try:
+        for it in nara_api(): merged[it["id"]] = it
+    except Exception as e: print("[나라일터] API 수집 실패:", red(e))
+    if not merged: raise RuntimeError("웹·API 모두 0건")
+    out = [it for it in merged.values() if "합격자" not in (it.get("title") or "")]
+    print(f"[나라일터] 합계 {len(merged)}건 → 합격자 공고 {len(merged)-len(out)}건 제외 → {len(out)}건")
+    return out
+def nara_api():
     """명세상 정렬·기간 파라미터 없음, 오래된 순 응답. 전체 마지막 페이지는 서버 시간초과 →
     제목 검색어별 totalCount로 마지막 페이지부터 역순 수집(45일 이전 등록이면 중단), 재시도·긴 타임아웃, 전체 12분 제한"""
     t0, cutoff = time.time(), (datetime.date.today() - datetime.timedelta(days=45)).strftime("%Y%m%d")
