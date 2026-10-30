@@ -68,6 +68,8 @@ for r in D["data"]:
         "car": car(r.get("career")), "fields": ([x.strip() for x in re.split(r"[,|]", r.get("field") or "") if x.strip()] or ([r["orgType"]] if r.get("orgType") else ["공무직·공공" if r.get("src")=="나라일터" else "기타"]))[:3], "dd": dd, "endS": end.isoformat() if end else "채용 시 마감"})
 items.sort(key=lambda x: (x["dd"] is None, x["dd"] if x["dd"] is not None else 0))
 ADHEAD = f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS}" crossorigin="anonymous"></script>' if ADS else ""
+GA = os.environ.get("GA_ID", "GT-NSSSWH8S")
+GAHEAD = f'<script async src="https://www.googletagmanager.com/gtag/js?id={GA}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag("js",new Date());gtag("config","{GA}");</script>' if GA else ""
 def ad(slot): return ""
 SAMPLE = '<div class="sample">⚠ 예시 데이터입니다. 실제 채용공고가 아니며, API 연결 후 실제 공고로 바뀝니다.</div>' if D.get("sample") else ""
 CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
@@ -77,7 +79,7 @@ def dlab(x): return "상시" if x["dd"] is None else ("오늘 마감" if x["dd"]
 def page(title, desc, body, canonical, extra=""):
     return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="{canonical}">
-<meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">{ADHEAD}{extra}<style>{CSS}</style></head><body>{SAMPLE}{body}
+<meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">{ADHEAD}{GAHEAD}{extra}<style>{CSS}</style></head><body>{SAMPLE}{body}
 <footer>출처: 공공기관 채용정보(알리오)·나라일터·고용24 공개 데이터. 지원 전 반드시 원문 공고를 확인하세요.<br>업데이트: {e(D.get("generated_at"))}</footer></body></html>'''
 out = f"{ROOT}/dist"; shutil.rmtree(out, ignore_errors=True); os.makedirs(f"{out}/j")
 for i, x in enumerate(items):
