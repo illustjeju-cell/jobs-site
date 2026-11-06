@@ -2,6 +2,43 @@
 import json, os, re, html, shutil, datetime, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from regions import region_of
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    _FONT_DIR = "/usr/share/fonts/opentype/noto"
+    FONT_B = f"{_FONT_DIR}/NotoSansCJK-Bold.ttc" if os.path.exists(f"{_FONT_DIR}/NotoSansCJK-Bold.ttc") else None
+    FONT_R = f"{_FONT_DIR}/NotoSansCJK-Regular.ttc" if os.path.exists(f"{_FONT_DIR}/NotoSansCJK-Regular.ttc") else None
+    HAS_PIL = bool(FONT_B and FONT_R)
+except Exception:
+    HAS_PIL = False
+    FONT_B = FONT_R = None
+def make_card(path, org, main, sub):
+    """링크 미리보기(OG)용 카드 이미지 1200x630 생성. 실패하면 False (빌드는 계속)."""
+    if not HAS_PIL: return False
+    try:
+        W, H = 1200, 630
+        NAVY, BLACK, GRAY = (27, 58, 107), (17, 17, 17), (110, 110, 110)
+        img = Image.new("RGB", (W, H), (255, 255, 255))
+        d = ImageDraw.Draw(img)
+        def fit(text, fp, size, min_size=30):
+            while size > min_size:
+                f = ImageFont.truetype(fp, size)
+                if d.textbbox((0, 0), text, font=f)[2] <= 1080: return f
+                size -= 4
+            return ImageFont.truetype(fp, min_size)
+        def center(text, y, f, fill):
+            b = d.textbbox((0, 0), text, font=f)
+            d.text(((W - (b[2] - b[0])) / 2 - b[0], y), text, font=f, fill=fill)
+        d.rectangle([0, 0, W, 84], fill=NAVY)
+        center("공공채용 나침반", 22, ImageFont.truetype(FONT_B, 38), (255, 255, 255))
+        center(org, 150, fit(org, FONT_B, 76), NAVY)
+        center(main, 262, fit(main, FONT_B, 108), BLACK)
+        d.line([300, 440, 900, 440], fill=(200, 208, 220), width=3)
+        center(sub, 472, fit(sub, FONT_R, 44, 26), GRAY)
+        d.rectangle([0, H - 26, W, H], fill=NAVY)
+        img.save(path, optimize=True)
+        return True
+    except Exception:
+        return False
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 SITE = os.environ.get("SITE_URL", "https://example.com").rstrip("/")
 ADS = os.environ.get("ADSENSE_CLIENT", "")
@@ -76,12 +113,13 @@ CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
 CPA = [("NCS·필기 인강 할인", "CPA 자리: 공기업 NCS 강의"), ("이력서·자소서 첨삭", "CPA 자리: 이력서 서비스"), ("컴활·한국사 자격증 단기 합격", "CPA 자리: 자격증 강의"), ("공무원 시험 무료 체험강의", "CPA 자리: 공무원 인강")]
 def cpa(i): return ""
 def dlab(x): return "상시" if x["dd"] is None else ("오늘 마감" if x["dd"] == 0 else f"D-{x['dd']}")
-def page(title, desc, body, canonical, extra=""):
+def page(title, desc, body, canonical, extra="", ogimg=""):
+    OGIMG = f'<meta property="og:image" content="{ogimg}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">' if ogimg else ""
     return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="{canonical}">
-<meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">{ADHEAD}{GAHEAD}{extra}<style>{CSS}</style></head><body>{SAMPLE}{body}
+<meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">{OGIMG}{ADHEAD}{GAHEAD}{extra}<style>{CSS}</style></head><body>{SAMPLE}{body}
 <footer>출처: 공공기관 채용정보(알리오)·나라일터·고용24 공개 데이터. 지원 전 반드시 원문 공고를 확인하세요.<br>업데이트: {e(D.get("generated_at"))}</footer></body></html>'''
-out = f"{ROOT}/dist"; shutil.rmtree(out, ignore_errors=True); os.makedirs(f"{out}/j")
+out = f"{ROOT}/dist"; shutil.rmtree(out, ignore_errors=True); os.makedirs(f"{out}/j"); os.makedirs(f"{out}/cards")
 for i, x in enumerate(items):
     det = x.get("detail") or {}
     qual = summ = ""
@@ -109,7 +147,13 @@ for i, x in enumerate(items):
     ld = json.dumps({"@context": "https://schema.org", "@type": "JobPosting", "title": x["title"], "datePosted": str(x.get("start")), "validThrough": x["endS"] if x["dd"] is not None else None,
         "hiringOrganization": {"@type": "Organization", "name": x["org"]}, "employmentType": x["emp"], "jobLocation": {"@type": "Place", "address": {"@type": "PostalAddress", "addressRegion": ", ".join(x["regions"]), "addressCountry": "KR"}},
         "description": x["title"]}, ensure_ascii=False)
-    open(f'{out}/j/{x["id"]}.html', "w", encoding="utf-8").write(page(title, desc, body, f'{SITE}/j/{x["id"]}.html', f'<script type="application/ld+json">{ld}</script>'))
+    if x["dd"] is None: dl_txt = "상시 채용"
+    else:
+        _p = x["endS"].split("-"); dl_txt = f"{int(_p[1])}월 {int(_p[2])}일 마감"
+    sub_txt = f'{dl_txt} · {"/".join(x["regions"][:3])} · {x["eduL"]}'
+    main_txt = f'{x["emp"]} 채용 {x["count"]}명' if x.get("count") else f'{x["emp"]} 채용'
+    card_ok = make_card(f'{out}/cards/{x["id"]}.png', x["org"], main_txt, sub_txt)
+    open(f'{out}/j/{x["id"]}.html', "w", encoding="utf-8").write(page(title, desc, body, f'{SITE}/j/{x["id"]}.html', f'<script type="application/ld+json">{ld}</script>', f'{SITE}/cards/{x["id"]}.png' if card_ok else ""))
 LITE = [{k: x[k] for k in ("id", "org", "title", "regions", "emp", "eduL", "car", "fields", "dd", "salary")} for x in items]
 json.dump(LITE, open(f"{out}/data.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 FIELDS = sorted({f for x in items for f in x["fields"]})
@@ -121,7 +165,8 @@ body = f'''<header class="top"><h1>공공채용 나침반</h1><p>공공기관·�
 <select id="c"><option value="">신입/경력</option>{opt(["신입","경력","신입·경력"])}</select><select id="d"><option value="">마감 전체</option><option value="3">3일 내</option><option value="7">7일 내</option><option value="30">30일 내</option></select></div>
 <p id="cnt"></p>{ad("list-top")}<div id="list"></div><button id="more">더 보기</button>{cpa(0)}</main>
 <script>{open(f"{ROOT}/templates/app.js", encoding="utf-8").read()}</script>'''
-open(f"{out}/index.html", "w", encoding="utf-8").write(page("공공채용 나침반 | 공공기관·공기업 채용공고 마감순", "공공기관, 공기업, 공무직 채용공고를 업종·지역·고용형태·학력·마감일로 찾아보세요.", body, f"{SITE}/"))
+default_ok = make_card(f"{out}/cards/default.png", "공공채용 나침반", "공공·공기업 채용공고", "마감 임박순으로 한눈에 확인")
+open(f"{out}/index.html", "w", encoding="utf-8").write(page("공공채용 나침반 | 공공기관·공기업 채용공고 마감순", "공공기관, 공기업, 공무직 채용공고를 업종·지역·고용형태·학력·마감일로 찾아보세요.", body, f"{SITE}/", "", f"{SITE}/cards/default.png" if default_ok else ""))
 urls = [f"{SITE}/"] + [f'{SITE}/j/{x["id"]}.html' for x in items]
 open(f"{out}/sitemap.xml", "w").write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<url><loc>{u}</loc><lastmod>{TODAY}</lastmod></url>" for u in urls) + "</urlset>")
 open(f"{out}/robots.txt", "w").write(f"User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n")
