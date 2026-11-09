@@ -116,20 +116,21 @@ def cpa(i): return ""
 # 표본 공고(SAMPLE_PREP)에만 표시한다. 전체 확대 시에는 SAMPLE_PREP를 매핑 규칙으로 교체할 것.
 # 제휴 링크는 공고별이 아니라 카테고리별 기본값(PREP_LINKS)으로 관리한다 — 같은 카테고리 공고는 같은 링크 재사용.
 # PREP_LINKS 값이 비어 있으면 버튼에 '링크 자리' 배지가 붙는다. 실제 링크는 사용자 계정에서 생성해 채울 것.
+# 상담(consult) 층: 텐핑 자격증 카테고리에서 본류 연결 가능한 건 손해평가사 캠페인뿐 (2026-11-09 사용자 확인 — 간호사·사회복지사 캠페인 없음. 베이비시터·약용식물자원관리사는 민간 자격이라 본류 제외). 손해평가사 관련 공고가 표본에 들어올 때 카테고리를 추가하고 consult를 켤 것.
 ALERT_FORM_ENDPOINT = ""  # 마감 알림 신청 폼 전송 주소 슬롯. 비어 있으면 폼은 '준비 중' 상태로 동작한다.
 PREP_CATS = {
     "ncs": {"books": ["NCS 직업기초능력평가 필기 교재"], "course": None, "consult": None},
     "it_security": {"books": ["정보보안기사 필기 교재"], "course": "정보보안 실무 강의 (Udemy)", "consult": None},
-    "nurse": {"books": ["간호사 국가시험 핵심 교재"], "course": None, "consult": "간호사 국가시험"},
+    "nurse": {"books": ["간호사 국가시험 핵심 교재"], "course": None, "consult": None},
     "electric": {"books": ["전기기사 필기 기출문제집"], "course": None, "consult": None},
-    "social_worker": {"books": ["사회복지사 1급 종합 교재"], "course": None, "consult": "사회복지사 자격"},
+    "social_worker": {"books": ["사회복지사 1급 종합 교재"], "course": None, "consult": None},
 }
 PREP_LINKS = {
     "ncs": {"coupang": "https://link.coupang.com/a/iwIXsxAQWy", "yes24": None, "udemy": ""},
-    "it_security": {"coupang": "", "yes24": "", "udemy": ""},
-    "nurse": {"coupang": "", "yes24": "", "udemy": ""},
-    "electric": {"coupang": "", "yes24": "", "udemy": ""},
-    "social_worker": {"coupang": "", "yes24": "", "udemy": ""},
+    "it_security": {"coupang": "https://link.coupang.com/a/iwJg70YdcO", "yes24": None, "udemy": "https://lase.kr/click.php?m=udemy&a=A100709736&l=0000"},
+    "nurse": {"coupang": "https://link.coupang.com/a/iwJmUbb2bI", "yes24": None, "udemy": ""},
+    "electric": {"coupang": "https://link.coupang.com/a/iwJoRoUv0e", "yes24": None, "udemy": ""},
+    "social_worker": {"coupang": "https://link.coupang.com/a/iwJqjs4WZM", "yes24": None, "udemy": ""},
 }
 SAMPLE_PREP = {"A306570": "it_security", "A306799": "nurse", "A306508": "ncs", "A306733": "electric", "A306602": "social_worker"}
 def _plink(url, label, cls):
