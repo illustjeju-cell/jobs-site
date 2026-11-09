@@ -127,6 +127,8 @@ PREP_CATS = {
     "med_lab": {"books": ["임상병리사 국가시험 핵심 교재"], "course": None, "consult": None},
     "med_ot": {"books": ["작업치료사 국가시험 핵심 교재"], "course": None, "consult": None},
     "med_assistant": {"books": ["간호조무사 시험 핵심 교재"], "course": None, "consult": None},
+    "history": {"books": ["한국사능력검정시험 심화 교재"], "course": None, "consult": None},
+    "office_it": {"books": ["컴퓨터활용능력 필기·실기 교재"], "course": None, "consult": None},
 }
 PREP_LINKS = {
     "ncs": {"coupang": "https://link.coupang.com/a/iwIXsxAQWy", "yes24": None, "udemy": ""},
@@ -137,6 +139,8 @@ PREP_LINKS = {
     "med_lab": {"coupang": "https://link.coupang.com/a/iwTfeQGoXk", "yes24": None, "udemy": ""},
     "med_ot": {"coupang": "https://link.coupang.com/a/iwTgEVNhme", "yes24": None, "udemy": ""},
     "med_assistant": {"coupang": "https://link.coupang.com/a/iwThUclNiS", "yes24": None, "udemy": ""},
+    "history": {"coupang": "https://link.coupang.com/a/iwVV12UCHc", "yes24": None, "udemy": ""},
+    "office_it": {"coupang": "https://link.coupang.com/a/iwVXrfjcjI", "yes24": None, "udemy": ""},
 }
 def classify(x):
     """공고 → 준비하기 카테고리 자동 판정 (2026-11-09 설계안). 자격(제목·응시자격·우대사항) 우선, 그다음 NCS 전형. 없으면 None."""
@@ -153,6 +157,8 @@ def classify(x):
     if "사회복지사" in hay: return "social_worker"
     if any(k in title for k in ("의사", "전문의", "변호사", "회계사", "세무사", "약사")): return None  # 전문직은 전공 필기라 NCS 교재와 무관
     if any(k in proc for k in ("필기", "시험")) and any(k in proc for k in ("NCS", "직업기초", "직무수행능력", "직무능력", "인적성")): return "ncs"
+    if "한국사능력검정" in hay: return "history"
+    if "컴퓨터활용능력" in hay: return "office_it"
     return None
 def _plink(url, label, cls):
     if url is None: return ""  # None이면 버튼 자체를 숨긴다 (예: 그 카테고리는 쿠팡만 운영). ""는 '링크 자리' 표시.
