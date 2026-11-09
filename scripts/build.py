@@ -113,7 +113,7 @@ CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
 CPA = [("NCS·필기 인강 할인", "CPA 자리: 공기업 NCS 강의"), ("이력서·자소서 첨삭", "CPA 자리: 이력서 서비스"), ("컴활·한국사 자격증 단기 합격", "CPA 자리: 자격증 강의"), ("공무원 시험 무료 체험강의", "CPA 자리: 공무원 인강")]
 def cpa(i): return ""
 # ===== 수익 스택 '준비하기' 섹션 (2026-11-09, 표본 단계) =====
-# 표본 공고(SAMPLE_PREP)에만 표시한다. 전체 확대 시에는 SAMPLE_PREP를 매핑 규칙으로 교체할 것.
+# 2026-11-09 표본 확인 후 전체 확대: classify() 자동 판정으로 교체. 쿠팡 링크가 없는 카테고리는 섹션을 붙이지 않는다.
 # 제휴 링크는 공고별이 아니라 카테고리별 기본값(PREP_LINKS)으로 관리한다 — 같은 카테고리 공고는 같은 링크 재사용.
 # PREP_LINKS 값이 비어 있으면 버튼에 '링크 자리' 배지가 붙는다. 실제 링크는 사용자 계정에서 생성해 채울 것.
 # 상담(consult) 층: 텐핑 자격증 카테고리에서 본류 연결 가능한 건 손해평가사 캠페인뿐 (2026-11-09 사용자 확인 — 간호사·사회복지사 캠페인 없음. 베이비시터·약용식물자원관리사는 민간 자격이라 본류 제외). 손해평가사 관련 공고가 표본에 들어올 때 카테고리를 추가하고 consult를 켤 것.
@@ -124,6 +124,9 @@ PREP_CATS = {
     "nurse": {"books": ["간호사 국가시험 핵심 교재"], "course": None, "consult": None},
     "electric": {"books": ["전기기사 필기 기출문제집"], "course": None, "consult": None},
     "social_worker": {"books": ["사회복지사 1급 종합 교재"], "course": None, "consult": None},
+    "med_lab": {"books": ["임상병리사 국가시험 핵심 교재"], "course": None, "consult": None},
+    "med_ot": {"books": ["작업치료사 국가시험 핵심 교재"], "course": None, "consult": None},
+    "med_assistant": {"books": ["간호조무사 시험 핵심 교재"], "course": None, "consult": None},
 }
 PREP_LINKS = {
     "ncs": {"coupang": "https://link.coupang.com/a/iwIXsxAQWy", "yes24": None, "udemy": ""},
@@ -131,16 +134,35 @@ PREP_LINKS = {
     "nurse": {"coupang": "https://link.coupang.com/a/iwJmUbb2bI", "yes24": None, "udemy": ""},
     "electric": {"coupang": "https://link.coupang.com/a/iwJoRoUv0e", "yes24": None, "udemy": ""},
     "social_worker": {"coupang": "https://link.coupang.com/a/iwJqjs4WZM", "yes24": None, "udemy": ""},
+    "med_lab": {"coupang": "https://link.coupang.com/a/iwTfeQGoXk", "yes24": None, "udemy": ""},
+    "med_ot": {"coupang": "https://link.coupang.com/a/iwTgEVNhme", "yes24": None, "udemy": ""},
+    "med_assistant": {"coupang": "https://link.coupang.com/a/iwThUclNiS", "yes24": None, "udemy": ""},
 }
-SAMPLE_PREP = {"A306570": "it_security", "A306799": "nurse", "A306508": "ncs", "A306733": "electric", "A306602": "social_worker"}
+def classify(x):
+    """공고 → 준비하기 카테고리 자동 판정 (2026-11-09 설계안). 자격(제목·응시자격·우대사항) 우선, 그다음 NCS 전형. 없으면 None."""
+    det = x.get("detail") or {}
+    title = x.get("title") or ""
+    hay = title + " " + (det.get("응시자격") or "") + " " + (det.get("우대사항") or "")
+    proc = det.get("전형절차") or ""
+    if any(k in hay for k in ("정보보안기사", "정보보안산업기사", "정보처리기사", "정보처리산업기사", "정보처리기능사")): return "it_security"
+    if "간호조무사" in hay and "간호사" not in title.replace("간호조무사", ""): return "med_assistant"
+    if "간호사" in title or "간호사 면허" in hay or "간호사면허" in hay: return "nurse"
+    if "임상병리사" in hay: return "med_lab"
+    if "작업치료사" in hay: return "med_ot"
+    if any(k in hay for k in ("전기기사", "전기산업기사", "전기기능사", "전기공사기사", "전기공사산업기사")): return "electric"
+    if "사회복지사" in hay: return "social_worker"
+    if any(k in title for k in ("의사", "전문의", "변호사", "회계사", "세무사", "약사")): return None  # 전문직은 전공 필기라 NCS 교재와 무관
+    if any(k in proc for k in ("필기", "시험")) and any(k in proc for k in ("NCS", "직업기초", "직무수행능력", "직무능력", "인적성")): return "ncs"
+    return None
 def _plink(url, label, cls):
     if url is None: return ""  # None이면 버튼 자체를 숨긴다 (예: 그 카테고리는 쿠팡만 운영). ""는 '링크 자리' 표시.
     if url: return f'<a class="{cls}" href="{e(url)}" target="_blank" rel="nofollow sponsored noopener">{label}</a>'
     return f'<a class="{cls} slot" href="#" onclick="return false">{label} <span class="slotb">링크 자리</span></a>'
 def prep(x):
-    cat = SAMPLE_PREP.get(x["id"])
+    cat = classify(x)
     if not cat: return ""
     cfg, L = PREP_CATS[cat], PREP_LINKS[cat]
+    if not L.get("coupang"): return ""  # 쿠팡 링크가 준비된 카테고리만 섹션을 붙인다
     p = ['<section class="card2 prep"><h2>📚 이 공고 준비하기</h2>']
     for b in cfg["books"]:
         p.append(f'<div class="pi"><p class="pt">교재 · {e(b)}</p><div class="pbtns">{_plink(L["coupang"], "쿠팡에서 보기", "pb main")}{_plink(L["yes24"], "예스24에서 보기", "pb sub")}</div></div>')
