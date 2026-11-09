@@ -112,6 +112,46 @@ SAMPLE = '<div class="sample">⚠ 예시 데이터입니다. 실제 채용공고
 CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
 CPA = [("NCS·필기 인강 할인", "CPA 자리: 공기업 NCS 강의"), ("이력서·자소서 첨삭", "CPA 자리: 이력서 서비스"), ("컴활·한국사 자격증 단기 합격", "CPA 자리: 자격증 강의"), ("공무원 시험 무료 체험강의", "CPA 자리: 공무원 인강")]
 def cpa(i): return ""
+# ===== 수익 스택 '준비하기' 섹션 (2026-11-09, 표본 단계) =====
+# 표본 공고(SAMPLE_PREP)에만 표시한다. 전체 확대 시에는 SAMPLE_PREP를 매핑 규칙으로 교체할 것.
+# 제휴 링크는 공고별이 아니라 카테고리별 기본값(PREP_LINKS)으로 관리한다 — 같은 카테고리 공고는 같은 링크 재사용.
+# PREP_LINKS 값이 비어 있으면 버튼에 '링크 자리' 배지가 붙는다. 실제 링크는 사용자 계정에서 생성해 채울 것.
+ALERT_FORM_ENDPOINT = ""  # 마감 알림 신청 폼 전송 주소 슬롯. 비어 있으면 폼은 '준비 중' 상태로 동작한다.
+PREP_CATS = {
+    "ncs": {"books": ["NCS 직업기초능력평가 필기 교재"], "course": None, "consult": None},
+    "it_security": {"books": ["정보보안기사 필기 교재"], "course": "정보보안 실무 강의 (Udemy)", "consult": None},
+    "nurse": {"books": ["간호사 국가시험 핵심 교재"], "course": None, "consult": "간호사 국가시험"},
+    "electric": {"books": ["전기기사 필기 기출문제집"], "course": None, "consult": None},
+    "social_worker": {"books": ["사회복지사 1급 종합 교재"], "course": None, "consult": "사회복지사 자격"},
+}
+PREP_LINKS = {c: {"coupang": "", "yes24": "", "udemy": ""} for c in PREP_CATS}
+SAMPLE_PREP = {"A306570": "it_security", "A306799": "nurse", "A306508": "ncs", "A306733": "electric", "A306602": "social_worker"}
+def _plink(url, label, cls):
+    if url: return f'<a class="{cls}" href="{e(url)}" target="_blank" rel="nofollow sponsored noopener">{label}</a>'
+    return f'<a class="{cls} slot" href="#" onclick="return false">{label} <span class="slotb">링크 자리</span></a>'
+def prep(x):
+    cat = SAMPLE_PREP.get(x["id"])
+    if not cat: return ""
+    cfg, L = PREP_CATS[cat], PREP_LINKS[cat]
+    p = ['<section class="card2 prep"><h2>📚 이 공고 준비하기</h2>']
+    for b in cfg["books"]:
+        p.append(f'<div class="pi"><p class="pt">교재 · {e(b)}</p><div class="pbtns">{_plink(L["coupang"], "쿠팡에서 보기", "pb main")}{_plink(L["yes24"], "예스24에서 보기", "pb sub")}</div></div>')
+    if cfg["course"]:
+        p.append(f'<div class="pi"><p class="pt">강의 · {e(cfg["course"])}</p><div class="pbtns">{_plink(L["udemy"], "Udemy에서 강의 보기", "pb main")}</div></div>')
+    if cfg["consult"]:
+        p.append(f'<div class="pi"><p class="pt">상담 · {e(cfg["consult"])} 준비 상담</p><div class="cslot">상담 신청 폼 자리 (텐핑 입력폼 연결 예정)</div></div>')
+    p.append('<p class="pnote">이 섹션의 일부 링크는 제휴 링크입니다. 링크를 통해 구매·신청하시면 사이트 운영에 도움이 되는 수수료가 지급될 수 있습니다.</p>')
+    org_f = f'{x["org"]} · {", ".join(x["fields"])}'
+    if ALERT_FORM_ENDPOINT:
+        form_open = f'<form class="aform" method="post" action="{e(ALERT_FORM_ENDPOINT)}">'
+    else:
+        form_open = '<form class="aform" onsubmit="event.preventDefault();this.querySelector(\'.amsg\').textContent=\'알림 신청은 준비 중입니다. 곧 열릴게요.\';">'
+    p.append(f'''<div class="aform-wrap">{form_open}<h3>🔔 마감 알림 신청</h3><p class="atarget">{e(org_f)} 새 공고와 마감을 이메일로 알려드립니다.</p>
+<input type="hidden" name="org" value="{e(x["org"])}"><input type="hidden" name="field" value="{e(", ".join(x["fields"]))}">
+<input type="email" name="email" required placeholder="이메일 주소" autocomplete="email">
+<label><input type="checkbox" required> 마감 알림 발송을 위한 이메일 수집·이용에 동의합니다</label>
+<button type="submit">알림 신청하기</button><p class="amsg"></p></form></div></section>''')
+    return "".join(p)
 def dlab(x): return "상시" if x["dd"] is None else ("오늘 마감" if x["dd"] == 0 else f"D-{x['dd']}")
 def page(title, desc, body, canonical, extra="", ogimg=""):
     OGIMG = f'<meta property="og:image" content="{ogimg}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">' if ogimg else ""
@@ -138,7 +178,7 @@ for i, x in enumerate(items):
 {ad("detail-top")}
 {folds}
 <details class="fold"><summary>공고 기본정보</summary><div class="fb"><ul class="l1"><li>고용형태: {e(x.get("type"))}</li><li>근무지: {e(x.get("region"))}</li><li>학력: {e(x.get("edu"))}</li><li>채용구분: {e(x.get("career"))}</li><li>접수: {e(x.get("start"))} ~ {e(x.get("end"))}</li></ul></div></details>
-{cpa(i)}
+{cpa(i)}{prep(x)}
 {f'<section class="card2 rel"><h2>비슷한 채용공고</h2>' + "".join(f'<a href="{y["id"]}.html"><strong>{e(y["org"])}</strong><span>{e(y["title"])} · {dlab(y)}</span></a>' for y in rel) + '</section>' if rel else ""}
 {ad("detail-bottom")}</main>
 {f'<div class="sticky"><a href="{e(x["url"])}" rel="nofollow noopener" target="_blank">원문 공고 보고 지원하기</a></div>' if x.get("url") else ""}'''
