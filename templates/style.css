@@ -26,3 +26,18 @@ main{max-width:760px;margin:0 auto;padding:16px}
 .sticky a{display:block;max-width:760px;margin:0 auto;text-align:center;background:#0f766e;color:#fff;padding:15px;border-radius:12px;font-weight:700;font-size:17px;text-decoration:none}
 footer{text-align:center;color:#98a2b3;font-size:12px;padding:24px 16px}
 @media(min-width:900px){main{max-width:1040px}.row{grid-template-columns:repeat(6,1fr)}#list{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}}
+.prep .pi{padding:10px 0 4px;border-top:1px solid #eaecf0}.prep .pi:first-of-type{border-top:0}
+.prep .pt{margin:0 0 8px;font-weight:600;font-size:16px}
+.pbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.pb{display:inline-block;padding:11px 16px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px}
+.pb.main{background:#0f766e;color:#fff}.pb.sub{background:#fff;color:#0f766e;border:1px solid #0f766e;font-weight:600}
+.pb.slot{border:1.5px dashed #98a2b3;background:#f9fafb;color:#667085}
+.slotb{font-size:11px;background:#fff4d6;color:#7a5200;border-radius:5px;padding:2px 6px;margin-left:2px;font-weight:700;vertical-align:2px}
+.cslot{border:2px dashed #c4c9d1;border-radius:10px;padding:18px 10px;text-align:center;color:#98a2b3;font-size:14px;margin-bottom:6px}
+.pnote{font-size:12.5px;color:#98a2b3;margin:10px 0 4px;line-height:1.5}
+.aform-wrap{margin-top:12px;border-top:1px solid #eaecf0;padding-top:14px}.aform-wrap h3{margin:0 0 6px;font-size:16px}
+.atarget{margin:0 0 4px;font-size:14.5px;color:#667085}
+.aform input[type=email]{width:100%;padding:12px 14px;font-size:16px;border:1px solid #d0d5dd;border-radius:10px;margin:6px 0}
+.aform label{display:block;font-size:13.5px;color:#667085;margin:6px 0 10px}
+.aform button{width:100%;padding:13px;border:0;border-radius:10px;background:#0f172a;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+.amsg{font-size:14px;color:#0f766e;margin:8px 0 2px}
