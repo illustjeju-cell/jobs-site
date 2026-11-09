@@ -124,9 +124,16 @@ PREP_CATS = {
     "electric": {"books": ["전기기사 필기 기출문제집"], "course": None, "consult": None},
     "social_worker": {"books": ["사회복지사 1급 종합 교재"], "course": None, "consult": "사회복지사 자격"},
 }
-PREP_LINKS = {c: {"coupang": "", "yes24": "", "udemy": ""} for c in PREP_CATS}
+PREP_LINKS = {
+    "ncs": {"coupang": "https://link.coupang.com/a/iwIXsxAQWy", "yes24": None, "udemy": ""},
+    "it_security": {"coupang": "", "yes24": "", "udemy": ""},
+    "nurse": {"coupang": "", "yes24": "", "udemy": ""},
+    "electric": {"coupang": "", "yes24": "", "udemy": ""},
+    "social_worker": {"coupang": "", "yes24": "", "udemy": ""},
+}
 SAMPLE_PREP = {"A306570": "it_security", "A306799": "nurse", "A306508": "ncs", "A306733": "electric", "A306602": "social_worker"}
 def _plink(url, label, cls):
+    if url is None: return ""  # None이면 버튼 자체를 숨긴다 (예: 그 카테고리는 쿠팡만 운영). ""는 '링크 자리' 표시.
     if url: return f'<a class="{cls}" href="{e(url)}" target="_blank" rel="nofollow sponsored noopener">{label}</a>'
     return f'<a class="{cls} slot" href="#" onclick="return false">{label} <span class="slotb">링크 자리</span></a>'
 def prep(x):
