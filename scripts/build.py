@@ -107,7 +107,18 @@ items.sort(key=lambda x: (x["dd"] is None, x["dd"] if x["dd"] is not None else 0
 ADHEAD = f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS}" crossorigin="anonymous"></script>' if ADS else ""
 GA = os.environ.get("GA_ID", "GT-NSSSWH8S")
 GAHEAD = f'<script async src="https://www.googletagmanager.com/gtag/js?id={GA}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag("js",new Date());gtag("config","{GA}");</script>' if GA else ""
-def ad(slot): return ""
+# ===== 상세 페이지 고정 광고 슬롯 (2026-11-11, RPM 개선 테스트) =====
+# 자동광고만으로는 상세 페이지에 광고가 거의 붙지 않아 수동 슬롯을 켠다.
+# 사용자 결정(2026-11-11): 광고 단위는 1개만 만들고 노출이 가장 많은 히어로 아래(상단)에만 적용한다.
+# 슬롯 ID는 AdSense 콘솔의 디스플레이 광고 단위. 값이 없으면 빈 문자열을 반환해 기존 동작과 같아진다.
+AD_SLOTS = {"detail-top": "6273657390"}
+def ad(slot):
+    sid = AD_SLOTS.get(slot)
+    if not ADS or not sid or sid.startswith("SLOT"): return ""
+    return (f'<div class="adbox" style="margin:18px 0;min-height:100px;text-align:center">'
+            f'<ins class="adsbygoogle" style="display:block" data-ad-client="{ADS}" data-ad-slot="{sid}" '
+            f'data-ad-format="auto" data-full-width-responsive="true"></ins>'
+            f'<script>(adsbygoogle = window.adsbygoogle || []).push({{}});</script></div>')
 SAMPLE = '<div class="sample">⚠ 예시 데이터입니다. 실제 채용공고가 아니며, API 연결 후 실제 공고로 바뀝니다.</div>' if D.get("sample") else ""
 CSS = open(f"{ROOT}/templates/style.css", encoding="utf-8").read()
 CPA = [("NCS·필기 인강 할인", "CPA 자리: 공기업 NCS 강의"), ("이력서·자소서 첨삭", "CPA 자리: 이력서 서비스"), ("컴활·한국사 자격증 단기 합격", "CPA 자리: 자격증 강의"), ("공무원 시험 무료 체험강의", "CPA 자리: 공무원 인강")]
@@ -202,7 +213,10 @@ for i, x in enumerate(items):
     qual = summ = ""
     q = det.get("응시자격") or det.get("aplyQlfcCn") or ""
     qual = f'{x["eduL"]} · {x["car"]}'
-    rel = [y for y in items if y["id"] != x["id"] and (set(y["regions"]) & set(x["regions"]) or set(y["fields"]) & set(x["fields"]))][:4]
+    rel_all = [y for y in items if y["id"] != x["id"] and (y["org"] == x["org"] or set(y["regions"]) & set(x["regions"]) or set(y["fields"]) & set(x["fields"]))]
+    rel_all.sort(key=lambda y: (y["org"] != x["org"], y["dd"] is None, y["dd"] if y["dd"] is not None else 0))
+    rel = rel_all[:6]
+    urgent = [y for y in items if y["id"] != x["id"] and y["dd"] is not None and y["dd"] <= 3][:5]
     folds = "".join(f'<details class="fold"><summary>{e(k)}</summary><div class="fb">{rich(v)}</div></details>' for k, v in det.items() if v)
     body = f'''<header class="top"><a href="../">← 공공채용 나침반</a></header><main class="detail">
 <p class="crumb">{e(x["src"])} · {e(", ".join(x["fields"]))}</p><h1>{e(x["title"])}</h1>
@@ -215,8 +229,10 @@ for i, x in enumerate(items):
 {ad("detail-top")}
 {folds}
 <details class="fold"><summary>공고 기본정보</summary><div class="fb"><ul class="l1"><li>고용형태: {e(x.get("type"))}</li><li>근무지: {e(x.get("region"))}</li><li>학력: {e(x.get("edu"))}</li><li>채용구분: {e(x.get("career"))}</li><li>접수: {e(x.get("start"))} ~ {e(x.get("end"))}</li></ul></div></details>
+{ad("detail-mid")}
 {cpa(i)}{prep(x)}
 {f'<section class="card2 rel"><h2>비슷한 채용공고</h2>' + "".join(f'<a href="{y["id"]}.html"><strong>{e(y["org"])}</strong><span>{e(y["title"])} · {dlab(y)}</span></a>' for y in rel) + '</section>' if rel else ""}
+{f'<section class="card2 rel"><h2>⏰ 마감 임박 공고</h2>' + "".join(f'<a href="{y["id"]}.html"><strong>{e(y["org"])}</strong><span>{e(y["title"])} · {dlab(y)}</span></a>' for y in urgent) + '</section>' if urgent else ""}
 {ad("detail-bottom")}</main>
 {f'<div class="sticky"><a href="{e(x["url"])}" rel="nofollow noopener" target="_blank">원문 공고 보고 지원하기</a></div>' if x.get("url") else ""}'''
     title = f'{x["org"]} {x["emp"]} 채용 {dlab(x)} | {", ".join(x["regions"])} {x["eduL"]} | 공공채용 나침반'
