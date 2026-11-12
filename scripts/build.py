@@ -191,7 +191,7 @@ def prep(x):
     if not L.get("coupang"): return ""  # 쿠팡 링크가 준비된 카테고리만 섹션을 붙인다
     p = ['<section class="card2 prep"><h2>📚 이 공고 준비하기</h2>']
     for b in cfg["books"]:
-        p.append(f'<div class="pi"><p class="pt">교재 · {e(b)}</p><div class="pbtns">{_plink(L["coupang"], "쿠팡에서 보기", "pb main")}{_plink(L["yes24"], "예스24에서 보기", "pb sub")}</div></div>')
+        p.append(f'<div class="pi"><p class="pt">교재 · {e(b)}</p><div class="pbtns">{_plink(L["coupang"], f"{b} 구매 바로가기", "pb main")}{_plink(L["yes24"], "예스24에서 보기", "pb sub")}</div></div>')
     if cfg["course"]:
         p.append(f'<div class="pi"><p class="pt">강의 · {e(cfg["course"])}</p><div class="pbtns">{_plink(L["udemy"], "Udemy에서 강의 보기", "pb main")}</div></div>')
     if cfg["consult"]:
