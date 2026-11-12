@@ -153,7 +153,7 @@ PREP_LINKS = {
     "med_assistant": {"coupang": "https://link.coupang.com/a/iwThUclNiS", "yes24": None, "udemy": ""},
     "history": {"coupang": "https://link.coupang.com/a/iwVV12UCHc", "yes24": None, "udemy": ""},
     "office_it": {"coupang": "https://link.coupang.com/a/iwVXrfjcjI", "yes24": None, "udemy": ""},
-    "caregiver": {"coupang": "", "yes24": None, "udemy": ""},
+    "caregiver": {"coupang": "https://link.coupang.com/a/iB3tnITag0", "yes24": None, "udemy": ""},
 }
 def classify(x):
     """공고 → 준비하기 카테고리 자동 판정 (2026-11-09 설계안). 자격(제목·응시자격·우대사항) 우선, 그다음 NCS 전형. 없으면 None."""
