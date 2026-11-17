@@ -127,7 +127,7 @@ def cpa(i): return ""
 # 2026-11-09 표본 확인 후 전체 확대: classify() 자동 판정으로 교체. 쿠팡 링크가 없는 카테고리는 섹션을 붙이지 않는다.
 # 제휴 링크는 공고별이 아니라 카테고리별 기본값(PREP_LINKS)으로 관리한다 — 같은 카테고리 공고는 같은 링크 재사용.
 # PREP_LINKS 값이 비어 있으면 버튼에 '링크 자리' 배지가 붙는다. 실제 링크는 사용자 계정에서 생성해 채울 것.
-# 상담(consult) 층: 텐핑 자격증 카테고리에서 본류 연결 가능한 건 손해평가사 캠페인뿐 (2026-11-09 사용자 확인 — 간호사·사회복지사 캠페인 없음. 베이비시터·약용식물자원관리사는 민간 자격이라 본류 제외). 손해평가사 관련 공고가 표본에 들어올 때 카테고리를 추가하고 consult를 켤 것.
+# 상담(consult) 층: 텐핑 자격증 카테고리에서 본류 연결 가능한 건 손해평가사 캠페인뿐 (2026-11-09 사용자 확인 — 간호사·사회복지사 캠페인 없음. 베이비시터·약용식물자원관리사는 민간 자격이라 본류 제외). 2026-11-17 사용자 승인으로 damage_assessor 카테고리 추가·consult 연결 완료 (텐핑 소문 링크, 홍보 고지·필수 문구 '합격시 수강료 환불' 포함). 해당 공고가 수집되면 자동으로 붙는다.
 ALERT_FORM_ENDPOINT = ""  # 마감 알림 신청 폼 전송 주소 슬롯. 비어 있으면 폼은 '준비 중' 상태로 동작한다.
 PREP_CATS = {
     "ncs": {"books": ["NCS 직업기초능력평가 필기 교재"], "course": None, "consult": None},
@@ -141,6 +141,7 @@ PREP_CATS = {
     "history": {"books": ["한국사능력검정시험 심화 교재"], "course": None, "consult": None},
     "office_it": {"books": ["컴퓨터활용능력 필기·실기 교재"], "course": None, "consult": None},
     "caregiver": {"books": ["요양보호사 자격시험 표준 교재"], "course": None, "consult": None},
+    "damage_assessor": {"books": [], "course": None, "consult": "손해평가사", "consult_desc": "농작물 재해보험의 손해를 평가하는 국가자격증이에요. 합격시 수강료 환불 과정으로 상담 신청이 가능해요. 시험 일정이나 준비 방법이 궁금하면 상담으로 확인해보세요."},
 }
 PREP_LINKS = {
     "ncs": {"coupang": "https://link.coupang.com/a/iwIXsxAQWy", "yes24": None, "udemy": ""},
@@ -154,6 +155,7 @@ PREP_LINKS = {
     "history": {"coupang": "https://link.coupang.com/a/iwVV12UCHc", "yes24": None, "udemy": ""},
     "office_it": {"coupang": "https://link.coupang.com/a/iwVXrfjcjI", "yes24": None, "udemy": ""},
     "caregiver": {"coupang": "https://link.coupang.com/a/iB3tnITag0", "yes24": None, "udemy": ""},
+    "damage_assessor": {"coupang": None, "yes24": None, "udemy": "", "tenping": "https://iryan.kr/t8hc3ykuyw"},
 }
 def classify(x):
     """공고 → 준비하기 카테고리 자동 판정 (2026-11-09 설계안). 자격(제목·응시자격·우대사항) 우선, 그다음 NCS 전형. 없으면 None."""
@@ -162,6 +164,7 @@ def classify(x):
     hay = title + " " + (det.get("응시자격") or "") + " " + (det.get("우대사항") or "")
     proc = det.get("전형절차") or ""
     if "요양보호사" in title: return "caregiver"  # 제목 우선 (2026-11-12): 우대사항에 적힌 다른 자격증보다 채용 직종 자체를 먼저 본다
+    if "손해평가" in hay or "농작물재해보험" in hay or (x.get("org") or "") == "농업정책보험금융원": return "damage_assessor"  # 텐핑 손해평가사 상담 연결 (2026-11-17)
     if any(k in hay for k in ("정보보안기사", "정보보안산업기사", "정보처리기사", "정보처리산업기사", "정보처리기능사")): return "it_security"
     if "간호조무사" in hay and "간호사" not in title.replace("간호조무사", ""): return "med_assistant"
     if "간호사" in title or "간호사 면허" in hay or "간호사면허" in hay: return "nurse"
@@ -188,14 +191,19 @@ def prep(x):
     cat = classify(x)
     if not cat: return ""
     cfg, L = PREP_CATS[cat], PREP_LINKS[cat]
-    if not L.get("coupang"): return ""  # 쿠팡 링크가 준비된 카테고리만 섹션을 붙인다
+    if not L.get("coupang") and not cfg.get("consult"): return ""  # 쿠팡 링크가 준비됐거나 상담이 연결된 카테고리만 섹션을 붙인다
     p = ['<section class="card2 prep"><h2>📚 이 공고 준비하기</h2>']
     for b in cfg["books"]:
         p.append(f'<div class="pi"><p class="pt">교재 · {e(b)}</p><div class="pbtns">{_plink(L["coupang"], f"{b} 구매 바로가기", "pb main")}{_plink(L["yes24"], "예스24에서 보기", "pb sub")}</div></div>')
     if cfg["course"]:
         p.append(f'<div class="pi"><p class="pt">강의 · {e(cfg["course"])}</p><div class="pbtns">{_plink(L["udemy"], "Udemy에서 강의 보기", "pb main")}</div></div>')
     if cfg["consult"]:
-        p.append(f'<div class="pi"><p class="pt">상담 · {e(cfg["consult"])} 준비 상담</p><div class="cslot">상담 신청 폼 자리 (텐핑 입력폼 연결 예정)</div></div>')
+        cu = L.get("tenping") or ""
+        if cu:
+            desc = f'<p style="margin:6px 0 10px;line-height:1.55">{e(cfg.get("consult_desc") or "")}</p>' if cfg.get("consult_desc") else ""
+            p.append(f'<div class="pi"><p class="pt">상담 · {e(cfg["consult"])} 준비 상담</p>{desc}<div class="pbtns">{_plink(cu, "상담 신청하기", "pb main")}</div><p class="pnote">이 상담은 홍보 링크를 통한 신청이에요. 신청이 접수되면 사이트 운영에 도움이 되는 소정의 수수료가 지급돼요.</p></div>')
+        else:
+            p.append(f'<div class="pi"><p class="pt">상담 · {e(cfg["consult"])} 준비 상담</p><div class="cslot">상담 신청 폼 자리 (텐핑 입력폼 연결 예정)</div></div>')
     p.append('<p class="pnote">이 섹션의 일부 링크는 제휴 링크입니다. 링크를 통해 구매·신청하시면 사이트 운영에 도움이 되는 수수료가 지급될 수 있습니다.</p>')
     org_f = f'{x["org"]} · {", ".join(x["fields"])}'
     if ALERT_FORM_ENDPOINT:
