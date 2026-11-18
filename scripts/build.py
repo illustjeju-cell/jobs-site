@@ -220,6 +220,7 @@ def dlab(x): return "상시" if x["dd"] is None else ("오늘 마감" if x["dd"]
 def page(title, desc, body, canonical, extra="", ogimg=""):
     OGIMG = f'<meta property="og:image" content="{ogimg}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">' if ogimg else ""
     return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="naver-site-verification" content="4c4dd7b44568097377b12ed7f387a7f42844656b">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="{canonical}">
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">{OGIMG}{ADHEAD}{GAHEAD}{extra}<style>{CSS}</style></head><body>{SAMPLE}{body}
 <footer>출처: 공공기관 채용정보(알리오)·나라일터·고용24 공개 데이터. 지원 전 반드시 원문 공고를 확인하세요.<br>업데이트: {e(D.get("generated_at"))}</footer></body></html>'''
